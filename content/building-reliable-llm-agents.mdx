@@ -1,0 +1,43 @@
+---
+title: "Building Reliable LLM Agents: Plan → Execute → Critique"
+publishedAt: "2026-06-20"
+summary: "What I learned shipping an autonomous multi-agent video platform to 1,200+ paying customers — and the patterns that keep agent output reliable in production."
+author: "Muhammad Ammar Ibrahim"
+---
+
+When I started building [VidSpotAI](https://vidspotai.com), I had a naive mental model of an "AI agent": one big prompt, one model, one shot. That model breaks the moment real users show up. Generations fail, costs spike, and "mostly works" becomes a support nightmare.
+
+What actually held up in production was treating the agent less like a chatbot and more like a small, observable pipeline.
+
+## Plan, then execute
+
+The single biggest reliability win was separating **planning** from **execution**.
+
+- A cheap, fast router (Haiku) classifies intent and routes work — most requests never need the expensive path.
+- A planner decomposes the task into a structured storyboard before any generation happens.
+- An executor drives generation against that plan, one step at a time.
+
+Because the plan is structured data (not free text), every later stage can reason about it, retry it, or repair it.
+
+## Critique before you ship
+
+Generation is non-deterministic, so I never trust a single result. Each output runs through:
+
+1. **Dual critics** that score the result against the plan.
+2. A **quality gate** with score bands, retry-budget caps, and optional human-approval steps.
+3. A **self-healing repair engine** that degrades or regenerates weak steps instead of failing the whole job.
+
+This is the same idea as an `LLM-as-judge` eval harness — except it runs in production, on every request, with a cost budget attached.
+
+## Make everything observable
+
+The part nobody tells you: agents are only as good as your ability to see what they did. Per-stage trace and timing instrumentation, plus per-stage cost tracking, turned "why did this fail?" from a guessing game into a lookup.
+
+## Takeaways
+
+- Structure the plan as data, not prose.
+- Route cheap by default; spend tokens only where they matter.
+- Verify with critics + a quality gate — assume any single generation can be wrong.
+- Instrument every stage. You can't fix what you can't see.
+
+More posts on RAG, evals, and data pipelines coming soon.
